@@ -6,8 +6,8 @@
 #define ControlDataLen 3
 int temperature_control_data[ControlDataLen + 1][3] = {
   {downON, 130, 15},  // 2ON   , temperature130, keep15sec
-  {allON , 230,  0},  // 1&2ON , temperature230, keep0sec
-  {downON, 225,100},  // 2ON   , temperature225, keep100sec
+  {allON , 220,  0},  // 1&2ON , temperature230, keep0sec
+  {downON, 220,10},  // 2ON   , temperature225, keep100sec
   {allOFF,   0,  0}   // 1&2OFF, temperature0  , keep0sec
 };
 
@@ -244,4 +244,3 @@ void lcdDisplay() {
     }
   }
 }
-
