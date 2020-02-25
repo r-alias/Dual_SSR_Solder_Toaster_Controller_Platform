@@ -22,9 +22,9 @@ ProfileState profile[] = {
 };
 
 ProfileState profile2[] = {
-  {HEAT_ALL_ON    , 130, 15},
-  {HEAT_ALL_ON    , 150, MINUITS(30)},
-  {HEAT_BOTTON_ON , 185, 10},
+  {HEAT_ALL_ON    , 130,  15},
+  {HEAT_ALL_ON    , 150,  MINUITS(30)},
+  {HEAT_ALL_OFF   ,   0,  0},
   {HEAT_ALL_OFF   ,   0,  0}
 };
 
@@ -56,6 +56,7 @@ LiquidCrystal lcd(LCDrsPin,LCDenablePin,LCDd4Pin,LCDd5Pin,LCDd6Pin,LCDd7Pin);
 #define FPS (1000 / FRAME_MS)
 
 byte state;          // main program mode
+ProfileState *targetProfile;
 ProfileState currentProfileState;
 
 byte heatState;      // UpDown heater status [b01:Heat1/ON, b10:Heat2/ON, b11:Both Heatn/ON]
@@ -95,10 +96,21 @@ void loop() {
       currentProfileState.heaterState = 0;
       currentProfileState.targetTemplature = 0;
       tableCounter = 0;
+      targetProfile = profile;
       state++;
       break;
     case 1: // start switch wait
       if (digitalRead(StartButton) == LOW) {
+        uint16_t count;
+        while(digitalRead(StartButton) == LOW) {
+          count++;
+          if(count > 500) {
+            // at hold 500ms, change profile.
+            targetProfile = profile2;
+            break;
+          }
+          delay(1);
+        }
         tone(TonePin,600,800);  // StartSound
         lcd.clear();
         setTempratureData();
@@ -137,7 +149,7 @@ void loop() {
 }
 
 void setTempratureData() {
-  currentProfileState = profile[tableCounter];
+  currentProfileState = targetProfile[tableCounter];
   temperatureWait = currentProfileState.keepTime * FPS;
   heatState = currentProfileState.heaterState;
 }
