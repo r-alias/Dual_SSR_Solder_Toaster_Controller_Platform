@@ -1,14 +1,31 @@
 
-#define allOFF 0
-#define upON   1
-#define downON 2
-#define allON  3
-#define ControlDataLen 3
-int temperature_control_data[ControlDataLen + 1][3] = {
-  {downON, 130, 15},  // 2ON   , temperature130, keep15sec
-  {allON , 220,  0},  // 1&2ON , temperature230, keep0sec
-  {downON, 220,10},  // 2ON   , temperature225, keep100sec
-  {allOFF,   0,  0}   // 1&2OFF, temperature0  , keep0sec
+#define HEAT_ALL_OFF 0
+#define HEAT_TOP_ON   1
+#define HEAT_BOTTON_ON 2
+#define HEAT_ALL_ON  (HEAT_BOTTON_ON | HEAT_TOP_ON)
+
+#define _countof(A) (sizeof(A)/sizeof(A[0]))
+#define MINUITS(A) (A*60)
+#define HOUR(A)    (A*60*60)
+
+typedef struct _TEMP_PROFILE_DATA {
+  int heaterState;
+  int targetTemplature;
+  int keepTime;
+} ProfileState;
+
+ProfileState profile[] = {
+  {HEAT_BOTTON_ON , 130, 15},
+  {HEAT_ALL_ON    , 190,  0},
+  {HEAT_BOTTON_ON , 185, 10},
+  {HEAT_ALL_OFF   ,   0,  0}
+};
+
+ProfileState profile2[] = {
+  {HEAT_ALL_ON    , 130, 15},
+  {HEAT_ALL_ON    , 150, MINUITS(30)},
+  {HEAT_BOTTON_ON , 185, 10},
+  {HEAT_ALL_OFF   ,   0,  0}
 };
 
 #include <LiquidCrystal.h>
@@ -35,15 +52,17 @@ int temperature_control_data[ControlDataLen + 1][3] = {
 
 LiquidCrystal lcd(LCDrsPin,LCDenablePin,LCDd4Pin,LCDd5Pin,LCDd6Pin,LCDd7Pin);
 
-#define delayWait 100
-#define oneSec (1000 / delayWait)
+#define FRAME_MS 100
+#define FPS (1000 / FRAME_MS)
+
 byte state;          // main program mode
-byte heatMode;       // UpDown heater mode
-byte heatState;      // UpDown heater status
+ProfileState currentProfileState;
+
+byte heatState;      // UpDown heater status [b01:Heat1/ON, b10:Heat2/ON, b11:Both Heatn/ON]
 byte tableCounter;   // data table counter
 int temperatureWait;  // temprature keep time(SEC)
 float temperature;    // Temperature
-float temperatureMax; // target Temprature
+
 int blinkTimer;      // blink timer
 boolean blinkFlag;   // blink ON/OFF flag
 
@@ -73,8 +92,8 @@ void loop() {
   switch (state) {
     case 0: // initialize
       lcd.clear();
-      heatMode = 0;
-      temperatureMax = 0;
+      currentProfileState.heaterState = 0;
+      currentProfileState.targetTemplature = 0;
       tableCounter = 0;
       state++;
       break;
@@ -87,7 +106,7 @@ void loop() {
       }
       break;
     case 2: // target Temperature
-      if (temperatureMax <= temperature) {
+      if (currentProfileState.targetTemplature <= temperature) {
         state++;
       }
       break;
@@ -99,7 +118,7 @@ void loop() {
     case 4: // Loop or Finish?
       tableCounter++;
       setTempratureData();
-      if (tableCounter < ControlDataLen) {
+      if (tableCounter < (_countof(profile)-1)) {
         state = 2;
       } else {
         tone(TonePin,600,1500);  // FinishSound
@@ -114,14 +133,13 @@ void loop() {
   }
   heatControl();
   lcdDisplay();
-  delay(delayWait);
+  delay(FRAME_MS);
 }
 
 void setTempratureData() {
-  heatMode = temperature_control_data[tableCounter][0];
-  temperatureMax = temperature_control_data[tableCounter][1];
-  temperatureWait = temperature_control_data[tableCounter][2] * oneSec;
-  heatState = heatMode;
+  currentProfileState = profile[tableCounter];
+  temperatureWait = currentProfileState.keepTime * FPS;
+  heatState = currentProfileState.heaterState;
 }
 
 void tempratureRead() {
@@ -157,10 +175,10 @@ void tempratureRead() {
 }
 
 void heatControl() {
-  if (temperature > temperatureMax) {
+  if (temperature > currentProfileState.targetTemplature) {
     heatState = 0;
-  } else if (temperature < (temperatureMax - 0.5)) {
-    heatState = heatMode;
+  } else if (temperature < (currentProfileState.targetTemplature - 0.5)) {
+    heatState = currentProfileState.heaterState;
   }
   if ((heatState & 1) == 0) {
     digitalWrite(Heat1Pin, LOW);
@@ -217,9 +235,9 @@ void lcdDisplay() {
       lcd.setCursor(5, 3);
       lcd.print("WAIT:");
       if (state == 3) {
-        lcd.print(temperatureWait / oneSec);
+        lcd.print(temperatureWait / FPS);
         lcd.print(".");
-        lcd.print(temperatureWait % oneSec * 10 / oneSec);
+        lcd.print(temperatureWait % FPS * 10 / FPS);
         lcd.print("sec");
       } else {
         lcd.print("---.-  ");
@@ -232,10 +250,10 @@ void lcdDisplay() {
   if (temperature < 10.0) lcd.print(" ");
   lcd.print(temperature);
   lcd.print(" / ");
-  lcd.print(temperatureMax);
+  lcd.print(currentProfileState.targetTemplature);
   lcd.print("  ");
   // blink control
-  if (++blinkTimer >= oneSec) {
+  if (++blinkTimer >= FPS) {
     blinkTimer = 0;
     if (blinkFlag == false) {
       blinkFlag = true;

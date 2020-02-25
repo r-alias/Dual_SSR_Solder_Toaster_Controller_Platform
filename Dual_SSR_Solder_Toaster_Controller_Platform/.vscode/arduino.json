@@ -1,0 +1,5 @@
+{
+    "board": "arduino:avr:pro",
+    "configuration": "cpu=16MHzatmega328",
+    "sketch": "Dual_SSR_Solder_Toaster_Controller_Platform.ino"
+}
