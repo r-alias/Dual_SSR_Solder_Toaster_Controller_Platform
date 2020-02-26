@@ -101,10 +101,10 @@ void loop() {
       break;
     case 1: // start switch wait
       if (digitalRead(StartButton) == LOW) {
-        uint16_t count;
+        uint16_t count = 0;
         while(digitalRead(StartButton) == LOW) {
           count++;
-          if(count > 500) {
+          if(count > 1000) {
             // at hold 500ms, change profile.
             targetProfile = profile2;
             break;
